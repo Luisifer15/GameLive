@@ -402,7 +402,7 @@ fun GameReviewDialog(
                     ) {
                         ExposedDropdownMenuBox(
                             expanded = expanded,
-                            onExpandedChange = { expanded = !it }
+                            onExpandedChange = { expanded = !expanded }
                         ) {
                             TextField(
                                 value = GameStatusUtils.getStatusString(status),
