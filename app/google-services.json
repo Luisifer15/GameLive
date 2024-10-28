@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "176576981127",
+    "project_id": "gamelive-ae4ce",
+    "storage_bucket": "gamelive-ae4ce.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:176576981127:android:bb88ebb5c92fbb4a29f022",
+        "android_client_info": {
+          "package_name": "ph.edu.auf.luisalfonso.rimando.gamelive"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFl1p6Oe16IsstbqrL-ZHOCFsM07FtnEw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
