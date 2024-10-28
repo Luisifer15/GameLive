@@ -3,6 +3,7 @@ package ph.edu.auf.luisalfonso.rimando.gamelive.ui.userprofile
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.CircleShape
@@ -26,19 +27,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
+import com.google.firebase.auth.FirebaseAuth
 import ph.edu.auf.luisalfonso.rimando.gamelive.R
+import ph.edu.auf.luisalfonso.rimando.gamelive.data.GameResult
 import ph.edu.auf.luisalfonso.rimando.gamelive.data.GameStatusUtils
 import ph.edu.auf.luisalfonso.rimando.gamelive.viewmodel.ProfileViewModel
 import ph.edu.auf.luisalfonso.rimando.gamelive.data.model.GameProfileEntry
+import ph.edu.auf.luisalfonso.rimando.gamelive.data.model.GameEntry
 
 @Composable
 fun ProfileScreen(navController: NavController, viewModel: ProfileViewModel = viewModel()) {
     val user by viewModel.user.collectAsState()
     val gameEntries by viewModel.gameEntries.collectAsState()
+    var selectedGame by remember { mutableStateOf<GameProfileEntry?>(null) } // Add this line
+    var showDialog by remember { mutableStateOf(false) } // Add this line
 
     Box(
         modifier = Modifier
@@ -197,15 +205,36 @@ fun ProfileScreen(navController: NavController, viewModel: ProfileViewModel = vi
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(gameEntries) { entry ->
-                    GameEntryGridItem(entry)
+                    GameEntryGridItem(entry) { game ->
+                        selectedGame = game
+                        showDialog = true
+                    }
                 }
             }
         }
     }
+
+    if (showDialog && selectedGame != null) {
+        ProfileGameReviewDialog(
+            game = selectedGame!!, // Pass the selectedGame
+            onDismiss = { showDialog = false },
+            onSave = { rating, review, status ->
+                val updatedEntry = GameEntry(
+                    gameId = selectedGame!!.gameId,
+                    gameTitle = selectedGame!!.gameTitle,
+                    rating = rating,
+                    review = review,
+                    status = status
+                )
+                viewModel.updateGameEntry(updatedEntry) // Update the game entry in the ViewModel
+                showDialog = false
+            }
+        )
+    }
 }
 
 @Composable
-fun GameEntryGridItem(entry: GameProfileEntry) {
+fun GameEntryGridItem(entry: GameProfileEntry,  onGameClick: (GameProfileEntry) -> Unit) {
     val baseUrl = "https://images.igdb.com/igdb/image/upload/t_cover_big/"
     val coverUrl = entry.gameCoverURL?.let { baseUrl + it.substringAfterLast("/") }
 
@@ -226,6 +255,7 @@ fun GameEntryGridItem(entry: GameProfileEntry) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.8f)
+                    .clickable { onGameClick(entry) },
             ) {
                 var isLoading by remember { mutableStateOf(true) }
                 var imageFailedToLoad by remember { mutableStateOf(false) }
@@ -312,15 +342,254 @@ fun GameEntryGridItem(entry: GameProfileEntry) {
                         horizontalArrangement = Arrangement.Start,
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        repeat(5) { index ->
+                        repeat((it / 2).toInt()) {
                             Icon(
-                                imageVector = if (index < (it / 2).toInt())
-                                    Icons.Filled.Star else Icons.Outlined.Star,
+                                imageVector = Icons.Filled.Star,
                                 contentDescription = null,
                                 tint = Color(0xFFFFC107),
                                 modifier = Modifier.size(12.dp)
                             )
                         }
+                        repeat(5 - (it / 2).toInt()) {
+                            Icon(
+                                imageVector = Icons.Outlined.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFFFC107),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileGameReviewDialog(
+    game: GameProfileEntry,
+    onDismiss: () -> Unit,
+    onSave: (Int?, String?, Int) -> Unit
+) {
+    var rating by remember { mutableStateOf(game.rating) }
+    var review by remember { mutableStateOf(game.review) }
+    var status by remember { mutableIntStateOf(game.status) }
+    var expanded by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = true,
+            dismissOnBackPress = true
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF001F2A)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 8.dp
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Title
+                Text(
+                    text = "Edit your Review for ${game.gameTitle}",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Rating Section
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "RATING",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.7f),
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "${rating ?: 0}/10",
+                            color = Color(0xFF00BCD4),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Slider(
+                        value = (rating ?: 0).toFloat(),
+                        onValueChange = { rating = it.toInt() },
+                        valueRange = 0f..10f,
+                        steps = 9,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF00BCD4),
+                            activeTrackColor = Color(0xFF00BCD4),
+                            inactiveTrackColor = Color.White.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+
+                // Review Section
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "YOUR REVIEW",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        letterSpacing = 1.sp
+                    )
+                    TextField(
+                        value = review ?: "",
+                        onValueChange = { review = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp),
+                        colors = TextFieldDefaults.textFieldColors(
+                            focusedTextColor = Color.White,
+                            cursorColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            containerColor = Color.White.copy(alpha = 0.1f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        placeholder = {
+                            Text(
+                                "Share your thoughts about the game...",
+                                color = Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+                    )
+                }
+
+                // Status Section
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "PLAY STATUS",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.7f),
+                        letterSpacing = 1.sp
+                    )
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            TextField(
+                                value = GameStatusUtils.getStatusString(status),
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(
+                                        expanded = expanded
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                colors = TextFieldDefaults.textFieldColors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    containerColor = Color.White.copy(alpha = 0.1f),
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false },
+                                modifier = Modifier.background(Color(0xFF001F2A))
+                            ) {
+                                (0..3).forEach { value ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = GameStatusUtils.getStatusString(value),
+                                                color = Color.White
+                                            )
+                                        },
+                                        onClick = {
+                                            status = value
+                                            expanded = false
+                                        },
+                                        colors = MenuDefaults.itemColors(
+                                            textColor = Color.White
+                                        ),
+                                        modifier = Modifier.background(
+                                            color = if (status == value) {
+                                                Color.White.copy(alpha = 0.1f)
+                                            } else {
+                                                Color.Transparent
+                                            }
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.1f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "Cancel",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Button(
+                        onClick = { onSave(rating, review, status) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00BCD4)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "Save",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

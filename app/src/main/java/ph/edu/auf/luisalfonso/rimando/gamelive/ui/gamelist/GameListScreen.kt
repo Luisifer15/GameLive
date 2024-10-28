@@ -33,6 +33,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
+import com.google.firebase.auth.FirebaseAuth
 import ph.edu.auf.luisalfonso.rimando.gamelive.R
 import ph.edu.auf.luisalfonso.rimando.gamelive.data.GameResult
 import ph.edu.auf.luisalfonso.rimando.gamelive.data.GameStatusUtils
@@ -46,6 +47,7 @@ fun GameListScreen(navController: NavController, viewModel: GameListViewModel = 
     val searchResults by viewModel.searchResults.collectAsState()
     var selectedGame by remember { mutableStateOf<GameResult?>(null) }
     var showDialog by remember { mutableStateOf(false) }
+
 
     Box(
         modifier = Modifier

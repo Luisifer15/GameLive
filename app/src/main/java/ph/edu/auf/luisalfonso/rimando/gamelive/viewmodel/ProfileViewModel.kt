@@ -21,6 +21,7 @@ class ProfileViewModel : ViewModel() {
     private val gameRepository = GameRepository()
     private val _user = MutableStateFlow(User())
     private val _gameEntries = MutableStateFlow<List<GameProfileEntry>>(emptyList())
+    private val _gameEntriesBase = MutableStateFlow<List<GameEntry>>(emptyList())
 
     val user: StateFlow<User> = _user.asStateFlow()
     val gameEntries: StateFlow<List<GameProfileEntry>> = _gameEntries.asStateFlow()
@@ -69,5 +70,33 @@ class ProfileViewModel : ViewModel() {
         _user.value = User() // Clear user data
         _gameEntries.value = emptyList() // Clear game entries
         Log.d("ProfileViewModel", "User logged out")
+    }
+
+
+    fun updateGameEntry(updatedEntry: GameEntry) {
+        viewModelScope.launch {
+            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            gameRepository.updateGameEntry(userId, updatedEntry) // Update the entry in the repository
+
+            // Refresh the game entries list after updating
+            val gameEntries = withContext(Dispatchers.IO) {
+                gameRepository.getGameEntries(userId)
+            }
+
+            val gameProfileEntries = gameEntries.map { entry ->
+                val gameDetails = withContext(Dispatchers.IO) {
+                    gameRepository.getGameDetails(entry.gameId, entry.gameTitle)
+                }
+                GameProfileEntry(
+                    gameId = entry.gameId,
+                    status = entry.status,
+                    rating = entry.rating,
+                    review = entry.review,
+                    gameTitle = gameDetails?.name ?: "", // Provide default value if null
+                    gameCoverURL = gameDetails?.cover?.url
+                )
+            }
+            _gameEntries.value = gameProfileEntries // Update _gameEntries with the new list
+        }
     }
 }

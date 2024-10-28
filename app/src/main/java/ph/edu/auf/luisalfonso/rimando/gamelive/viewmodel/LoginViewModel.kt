@@ -59,7 +59,9 @@ class LoginViewModel: ViewModel() {
                 if (task.isSuccessful)
                 {
                     // Navigate to game list screen
-                    navController.navigate("gameList")
+                    navController.navigate("gameList") {
+                        popUpTo("login") { inclusive = true }
+                    }
                 } else {
                     setError("An error occurred during login")
                 }

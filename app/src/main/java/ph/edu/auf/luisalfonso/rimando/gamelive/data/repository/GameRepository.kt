@@ -39,6 +39,20 @@ class GameRepository {
         }
     }
 
+    suspend fun updateGameEntry(userId: String, updatedEntry: GameEntry) {
+        try {
+            val gameEntryRef = firestore.collection("users").document(userId).collection("games").document(updatedEntry.gameId.toString())
+            gameEntryRef.update(
+                "status", updatedEntry.status,
+                "rating", updatedEntry.rating,
+                "review", updatedEntry.review
+            ).await()
+            Log.d("GameRepository", "Game entry updated successfully")
+        } catch (e: Exception) {
+            Log.e("GameRepository", "Error updating game entry", e)
+        }
+    }
+
     suspend fun getAccessToken(): String = withContext(Dispatchers.IO) {
         val twitchAuthService = TwitchAuthService()
         twitchAuthService.getAccessToken()
